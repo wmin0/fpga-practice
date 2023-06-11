@@ -3,4 +3,4 @@ QUARTUS_VERSION = "15.1.0"
 
 # Revisions
 
-PROJECT_REVISION = "DE10_LITE_Golden_Top"
+PROJECT_REVISION = "control_test"
