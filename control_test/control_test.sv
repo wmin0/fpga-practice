@@ -74,8 +74,9 @@ module control_test (
 //=======================================================
 //  Structural coding
 //=======================================================
-  //practice_hex_display main(
-  practice_bcd_display main(
+  //practice_hex_display main (
+  //practice_bcd_display main (
+  practice_counter main (
     .HEX0(HEX0),
     .HEX1(HEX1),
     .HEX2(HEX2),
@@ -83,7 +84,9 @@ module control_test (
     .HEX4(HEX4),
     .HEX5(HEX5),
     .LEDR(LEDR),
-    .SW(SW));
+    .KEY(KEY),
+    .SW(SW),
+    .CLK_10(ADC_CLK_10));
 endmodule
 
 module display_to_hex (
@@ -120,7 +123,9 @@ module practice_hex_display (
 	output [7:0] HEX4,
 	output [7:0] HEX5,
   output [9:0] LEDR,
-  input [9:0] SW
+  input [1:0] KEY,
+  input [9:0] SW,
+  input CLK_10
 );
   assign LEDR[9:0] = SW[9:0];
 
@@ -278,12 +283,14 @@ module practice_bcd_display (
 	output [7:0] HEX4,
 	output [7:0] HEX5,
   output [9:0] LEDR,
-  input [9:0] SW
+  input [1:0] KEY,
+  input [9:0] SW,
+  input CLK_10
 );
   wire [15:0] bcd;
 
   hex_to_bcd h2b (.bcd(bcd), .num(SW));
- 
+
   assign LEDR[9:0] = SW[9:0];
 
   display_to_hex h0 (.hex(HEX0), .num(bcd[3:0]));
@@ -292,4 +299,98 @@ module practice_bcd_display (
   display_to_hex h3 (.hex(HEX3), .num(bcd[15:12]));
   assign HEX4 = 8'hff;
   assign HEX5 = 8'hff;
+endmodule
+
+module practice_counter (
+  output [7:0] HEX0,
+	output [7:0] HEX1,
+	output [7:0] HEX2,
+	output [7:0] HEX3,
+	output [7:0] HEX4,
+	output [7:0] HEX5,
+  output [9:0] LEDR,
+  input [1:0] KEY,
+  input [9:0] SW,
+  input CLK_10
+);
+  wire [23:0] bcd;
+  reg [31:0] counter;
+  reg [31:0] hold [1:0];
+  reg [31:0] put [1:0];
+
+  assign LEDR[0] = SW[0];
+  assign LEDR[6] = KEY[0];
+  assign LEDR[7] = KEY[1];
+
+  display_to_hex h0 (.hex(HEX0), .num(bcd[3:0]));
+  display_to_hex h1 (.hex(HEX1), .num(bcd[7:4]));
+  display_to_hex h2 (.hex(HEX2), .num(bcd[11:8]));
+  display_to_hex h3 (.hex(HEX3), .num(bcd[15:12]));
+  display_to_hex h4 (.hex(HEX4), .num(bcd[19:16]));
+  display_to_hex h5 (.hex(HEX5), .num(bcd[23:20]));
+
+  initial begin
+    bcd = 16'b0;
+    counter = 10'b0;
+    hold[0] = 32'b0;
+    hold[1] = 32'b0;
+    put[0] = 32'b0;
+    put[1] = 32'b0;
+  end
+
+  always_ff @(posedge CLK_10) begin
+    if (SW[0] == 1'b1) begin
+      bcd <= 16'b0;
+      counter <= 10'b0;
+      hold[0] <= 32'b0;
+      hold[1] <= 32'b0;
+      put[0] <= 32'b0;
+      put[1] <= 32'b0;
+    end else begin
+      if (KEY[0] == 1'b0) begin
+        hold[0] <= hold[0] + 1;
+        // 10MHz * 1e6
+        if (hold[0] > 32'd100000) begin
+          hold[0] <= 32'b0;
+          put[0] <= 32'b0;
+          counter <= counter + 1;
+          bcd[23:20] <= ((counter + 1) / 100000) % 10;
+          bcd[19:16] <= ((counter + 1) / 10000) % 10;
+          bcd[15:12] <= ((counter + 1) / 1000) % 10;
+          bcd[11:8] <= ((counter + 1) / 100) % 10;
+          bcd[7:4] <= ((counter + 1) / 10) % 10;
+          bcd[3:0] <= (counter + 1) % 10;
+        end
+      end else begin
+        put[0] <= put[0] + 1;
+        // 10MHz * 1e6
+        if (put[0] > 32'd100000) begin
+          hold[0] <= 32'b0;
+          put[0] <= 32'b0;
+        end
+      end
+      if (KEY[1] == 1'b0) begin
+        hold[1] <= hold[1] + 1;
+        // 10MHz * 1e6
+        if (hold[1] > 32'd100000) begin
+          hold[1] <= 32'b0;
+          put[1] <= 32'b0;
+          counter <= counter - 1;
+          bcd[23:20] <= ((counter - 1) / 100000) % 10;
+          bcd[19:16] <= ((counter - 1) / 10000) % 10;
+          bcd[15:12] <= ((counter - 1) / 1000) % 10;
+          bcd[11:8] <= ((counter - 1) / 100) % 10;
+          bcd[7:4] <= ((counter - 1) / 10) % 10;
+          bcd[3:0] <= (counter - 1) % 10;
+        end
+      end else begin
+        put[1] <= put[1] + 1;
+        // 10MHz * 1e6
+        if (put[1] > 32'd100000) begin
+          hold[1] <= 32'b0;
+          put[1] <= 32'b0;
+        end
+      end
+    end
+  end
 endmodule
