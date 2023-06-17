@@ -74,22 +74,24 @@ module control_test (
 //=======================================================
 //  Structural coding
 //=======================================================
-  assign LEDR[9:0] = SW[9:0];
-
-  display_number_to_hex h0 (.hex(HEX0), .number(SW[3:0]));
-  display_number_to_hex h1 (.hex(HEX1), .number(SW[7:4]));
-  display_number_to_hex h2 (.hex(HEX2), .number({2'b00, SW[9:8]}));
-  assign HEX3 = 8'hff;
-  assign HEX4 = 8'hff;
-  assign HEX5 = 8'hff;
+  //practice_hex_display main(
+  practice_bcd_display main(
+    .HEX0(HEX0),
+    .HEX1(HEX1),
+    .HEX2(HEX2),
+    .HEX3(HEX3),
+    .HEX4(HEX4),
+    .HEX5(HEX5),
+    .LEDR(LEDR),
+    .SW(SW));
 endmodule
 
-module display_number_to_hex (
+module display_to_hex (
   output [7:0] hex,
-  input [3:0] number
+  input [3:0] num
 );
   always_comb begin
-    case (number)
+    case (num)
       4'h0: hex = 8'b11000000;
       4'h1: hex = 8'b11111001;
       4'h2: hex = 8'b10100100;
@@ -108,4 +110,186 @@ module display_number_to_hex (
       4'hf: hex = 8'b10001110;
     endcase
   end
+endmodule
+
+module practice_hex_display (
+	output [7:0] HEX0,
+	output [7:0] HEX1,
+	output [7:0] HEX2,
+	output [7:0] HEX3,
+	output [7:0] HEX4,
+	output [7:0] HEX5,
+  output [9:0] LEDR,
+  input [9:0] SW
+);
+  assign LEDR[9:0] = SW[9:0];
+
+  display_to_hex h0 (.hex(HEX0), .num(SW[3:0]));
+  display_to_hex h1 (.hex(HEX1), .num(SW[7:4]));
+  display_to_hex h2 (.hex(HEX2), .num({2'b00, SW[9:8]}));
+  assign HEX3 = 8'hff;
+  assign HEX4 = 8'hff;
+  assign HEX5 = 8'hff;
+endmodule
+
+module bcd_adder_1 (
+  output [3:0] dout,
+  output cout,
+  input [3:0] d1,
+  input [3:0] d2,
+  input cin
+);
+  wire [3:0] tmp;
+
+  assign tmp = d1 + d2 + cin;
+  assign dout = (tmp > 9) ? tmp - 10 : tmp;
+  assign cout = (tmp > 9) ? 1'b1 : 1'b0;
+endmodule
+
+module bcd_adder_2 (
+  output [7:0] dout,
+  output cout,
+  input [7:0] d1,
+  input [7:0] d2,
+  input cin
+);
+  wire carry;
+
+  bcd_adder_1 low (
+    .dout(dout[3:0]),
+    .cout(carry),
+    .d1(d1[3:0]),
+    .d2(d2[3:0]),
+    .cin(cin));
+
+  bcd_adder_1 high (
+    .dout(dout[7:4]),
+    .cout(cout),
+    .d1(d1[7:4]),
+    .d2(d2[7:4]),
+    .cin(carry));
+endmodule
+
+module bcd_adder_3 (
+  output [11:0] dout,
+  output cout,
+  input [11:0] d1,
+  input [11:0] d2,
+  input cin
+);
+  wire carry;
+
+  bcd_adder_2 low (
+    .dout(dout[7:0]),
+    .cout(carry),
+    .d1(d1[7:0]),
+    .d2(d2[7:0]),
+    .cin(cin));
+
+  bcd_adder_1 high (
+    .dout(dout[11:8]),
+    .cout(cout),
+    .d1(d1[11:8]),
+    .d2(d2[11:8]),
+    .cin(carry));
+endmodule
+
+module hex_to_bcd (
+  output [15:0] bcd,
+  input [9:0] num
+);
+  wire [3:0] bcd_3;
+  wire [7:0] bcd_4;
+  wire [7:0] bcd_5;
+  wire [7:0] bcd_6;
+  wire [11:0] bcd_7;
+  wire [11:0] bcd_8;
+  wire [11:0] bcd_9;
+
+  wire [4:0] out_3;
+  wire [7:0] out_4;
+  wire [7:0] out_5;
+  wire [8:0] out_6;
+  wire [11:0] out_7;
+  wire [11:0] out_8;
+  wire [12:0] out_9;
+
+  assign bcd_3 = num[3] ? {4'h8} : 8'b0;
+  assign bcd_4 = num[4] ? {4'h1, 4'h6} : 8'b0;
+  assign bcd_5 = num[5] ? {4'h3, 4'h2} : 8'b0;
+  assign bcd_6 = num[6] ? {4'h6, 4'h4} : 8'b0;
+  assign bcd_7 = num[7] ? {4'h1, 4'h2, 4'h8} : 12'b0;
+  assign bcd_8 = num[8] ? {4'h2, 4'h5, 4'h6} : 12'b0;
+  assign bcd_9 = num[9] ? {4'h5, 4'h1, 4'h2} : 12'b0;
+
+  bcd_adder_1 adder_3 (
+    .dout(out_3[3:0]),
+    .cout(out_3[4]),
+    .d1({1'b0, num[2:0]}),
+    .d2(bcd_3),
+    .cin(1'b0));
+
+  bcd_adder_2 adder_4 (
+    .dout(out_4),
+    .d1({3'b0, out_3}),
+    .d2(bcd_4),
+    .cin(1'b0));
+
+  bcd_adder_2 adder_5 (
+    .dout(out_5),
+    .d1(out_4),
+    .d2(bcd_5),
+    .cin(1'b0));
+
+  bcd_adder_2 adder_6 (
+    .dout(out_6[7:0]),
+    .cout(out_6[8]),
+    .d1(out_5),
+    .d2(bcd_6),
+    .cin(1'b0));
+
+  bcd_adder_3 adder_7 (
+    .dout(out_7),
+    .d1({3'b0, out_6}),
+    .d2(bcd_7),
+    .cin(1'b0));
+
+  bcd_adder_3 adder_8 (
+    .dout(out_8),
+    .d1(out_7),
+    .d2(bcd_8),
+    .cin(1'b0));
+
+  bcd_adder_3 adder_9 (
+    .dout(out_9[11:0]),
+    .cout(out_9[12]),
+    .d1(out_8),
+    .d2(bcd_9),
+    .cin(1'b0));
+
+  assign bcd = {3'b0, out_9};
+endmodule
+
+module practice_bcd_display (
+	output [7:0] HEX0,
+	output [7:0] HEX1,
+	output [7:0] HEX2,
+	output [7:0] HEX3,
+	output [7:0] HEX4,
+	output [7:0] HEX5,
+  output [9:0] LEDR,
+  input [9:0] SW
+);
+  wire [15:0] bcd;
+
+  hex_to_bcd h2b (.bcd(bcd), .num(SW));
+ 
+  assign LEDR[9:0] = SW[9:0];
+
+  display_to_hex h0 (.hex(HEX0), .num(bcd[3:0]));
+  display_to_hex h1 (.hex(HEX1), .num(bcd[7:4]));
+  display_to_hex h2 (.hex(HEX2), .num(bcd[11:8]));
+  display_to_hex h3 (.hex(HEX3), .num(bcd[15:12]));
+  assign HEX4 = 8'hff;
+  assign HEX5 = 8'hff;
 endmodule
